@@ -8,9 +8,9 @@ const port = process.env.PORT || 5001;
 
 app.use(cors(
   {
-  origin: '*', 
-  withcredentials: true,
-}
+    origin: '*',
+    withcredentials: true,
+  }
 ));
 
 app.use(express.json());
@@ -32,7 +32,10 @@ async function run() {
     const database = client.db("AncientQuest");
     const artifacts = database.collection("Artifacts");
 
-
+    app.get('/artifacts', async (req, res) => {
+      const result = await artifacts.find().toArray();
+      res.send(result);
+    });
 
     // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
