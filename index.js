@@ -31,6 +31,7 @@ async function run() {
 
     const database = client.db("AncientQuest");
     const artifacts = database.collection("Artifacts");
+    const userLikeHistory = database.collection("UserLikeHistory");
 
     app.get('/artifacts', async (req, res) => {
       const result = await artifacts.find().toArray();
@@ -43,6 +44,43 @@ async function run() {
       res.send(result);
     });
 
+
+
+    app.patch('/artifact/:id/like', async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).json({ message: 'Invalid id' });
+        }
+
+        const { userEmail, userName, artifactName } = req.body || {};
+
+        const filter = { _id: new ObjectId(id) };
+
+        const updateRes = await artifacts.findOneAndUpdate(
+          filter,
+          { $inc: { likeCount: 1 } },
+          { returnDocument: 'after' }
+        );
+
+        const updatedArtifact = updateRes;
+
+        await userLikeHistory.insertOne({
+          artifactId: new ObjectId(id),
+          artifactName: artifactName || updatedArtifact.artifactName || '',
+          userEmail,
+          userName: userName || '',
+          likedAt: new Date()
+        });
+
+        res.json(updatedArtifact);
+      } catch (err) {
+        console.error('like route error', err);
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    });
+
     app.get('/artifact/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -50,14 +88,23 @@ async function run() {
       res.send(artifact);
     });
 
-    app.patch('/artifact/:id/like', async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updateDoc = { 
-        $inc: { likeCount: 1 },
-      };
-      const result = await artifacts.updateOne(filter, updateDoc);
-      res.send(result);
+    app.get('/likes/check', async (req, res) => {
+      try {
+        const { artifactId, userEmail } = req.query;
+        if (!artifactId || !userEmail) return res.json({ isLiked: false });
+
+        if (!ObjectId.isValid(artifactId)) return res.status(400).json({ message: 'Invalid artifactId' });
+
+        const found = await userLikeHistory.findOne({
+          artifactId: new ObjectId(artifactId),
+          userEmail: userEmail
+        });
+
+        res.json({ isLiked: !!found });
+      } catch (err) {
+        console.error('likes.check error', err);
+        res.status(500).json({ message: 'Internal server error' });
+      }
     });
 
     app.get('/allArtifacts', async (req, res) => {
