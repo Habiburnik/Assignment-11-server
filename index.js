@@ -43,6 +43,23 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/artifact/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const artifact = await artifacts.findOne(query);
+      res.send(artifact);
+    });
+
+    app.patch('/artifact/:id/like', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = { 
+        $inc: { likeCount: 1 },
+      };
+      const result = await artifacts.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
