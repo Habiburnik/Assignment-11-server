@@ -37,6 +37,12 @@ async function run() {
       res.send(result);
     });
 
+    app.post('/addArtifact', async (req, res) => {
+      const newArtifact = req.body;
+      const result = await artifacts.insertOne(newArtifact);
+      res.send(result);
+    });
+
     // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
