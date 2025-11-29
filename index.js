@@ -54,7 +54,7 @@ async function run() {
           return res.status(400).json({ message: 'Invalid id' });
         }
 
-        const { userEmail, userName, artifactName } = req.body || {};
+        const { userEmail, artifactName, artifactImage } = req.body || {};
 
         const filter = { _id: new ObjectId(id) };
 
@@ -69,8 +69,8 @@ async function run() {
         await userLikeHistory.insertOne({
           artifactId: new ObjectId(id),
           artifactName: artifactName || updatedArtifact.artifactName || '',
+          artifactImage: artifactImage || updatedArtifact.artifactImage || '',
           userEmail,
-          userName: userName || '',
           likedAt: new Date()
         });
 
@@ -87,6 +87,25 @@ async function run() {
       const artifact = await artifacts.findOne(query);
       res.send(artifact);
     });
+
+    app.get('/liked-artifacts', async (req, res) => {
+      try {
+        const { userEmail } = req.query;
+        if (!userEmail) return res.status(400).json({ message: 'userEmail required' });
+
+        const liked = await userLikeHistory
+          .find({ userEmail })
+          .sort({ likedAt: -1 })
+          .project({ _id: 0, artifactId: 1, artifactName: 1, artifactImage: 1, likedAt: 1 })
+          .toArray();
+
+        res.json(liked);
+      } catch (err) {
+        console.error('liked-artifacts error', err);
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    });
+
 
     app.get('/likes/check', async (req, res) => {
       try {
@@ -106,6 +125,8 @@ async function run() {
         res.status(500).json({ message: 'Internal server error' });
       }
     });
+
+
 
     app.get('/allArtifacts', async (req, res) => {
       const result = await artifacts.find().toArray();
