@@ -3,6 +3,8 @@ const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const port = process.env.PORT || 5001;
 
 
@@ -12,8 +14,8 @@ app.use(cors(
     withcredentials: true,
   }
 ));
-
 app.use(express.json());
+app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wx3f0no.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -32,6 +34,16 @@ async function run() {
     const database = client.db("AncientQuest");
     const artifacts = database.collection("Artifacts");
     const userLikeHistory = database.collection("UserLikeHistory");
+
+    app.post('/jwt', (req, res) => {
+      const user = req.body;
+      console.log(user);
+      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
+      res.
+      cookie('token', token, { httpOnly: true, secure: false })
+      .send({ success: true } );
+    });
+
 
     app.get('/artifacts', async (req, res) => {
       const result = await artifacts.find().toArray();
