@@ -133,6 +133,59 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/my-artifacts', async (req, res) => {
+      try {
+        const { userEmail } = req.query;
+        if (!userEmail) return res.status(400).json({ message: 'userEmail required' });
+        const myArtifacts = await artifacts
+          .find({ addedByEmail: userEmail })
+          .sort({ createdDate: -1 })
+          .toArray();
+        res.json(myArtifacts);
+      } catch (err) {
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    });
+
+    app.patch('/artifact/:id', async (req, res) => {
+      try {
+        const { id } = req.params;
+        if (!ObjectId.isValid(id)) return res.status(400).json({ message: 'Invalid id' });
+        const allowed = [
+          'artifactName', 'artifactImage', 'artifactType', 'historicalContext',
+          'createdAt', 'discoveredAt', 'discoveredBy', 'presentLocation'
+        ];
+        const updateFields = {};
+        for (const key of allowed) {
+          if (req.body[key] !== undefined) updateFields[key] = req.body[key];
+        }
+        const filter = { _id: new ObjectId(id) };
+        const result = await artifacts.updateOne(filter, { $set: updateFields });
+        if (result.matchedCount === 0) return res.status(404).json({ message: 'Artifact not found' });
+        res.json({ success: true });
+      } catch (err) {
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    });
+
+    app.delete('/artifact/:id', async (req, res) => {
+      try {
+        console.log('Delete request received');
+
+        const { id } = req.params;
+        console.log(id);
+        // if (!ObjectId.isValid(id)) return res.status(400).json({ message: 'Invalid id' });
+        console.log(`Attempting to delete artifact with id: ${id}`);
+        const filter = { _id: new ObjectId(id) };
+        const result = await artifacts.deleteOne(filter);
+        console.log('Delete result:', result);
+        if (result.deletedCount === 0) return res.status(404).json({ message: 'Not found or not authorized' });
+        res.json({ success: true });
+      } catch (err) {
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    });
+
     // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
