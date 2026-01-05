@@ -10,12 +10,28 @@ const port = process.env.PORT || 5001;
 
 app.use(cors(
   {
-    origin: '*',
-    withcredentials: true,
+    origin: 'http://localhost:5173',
+    credentials: true,
   }
 ));
 app.use(express.json());
 app.use(cookieParser());
+
+const verifyToken = (req, res, next) => {
+  const token = req.cookies.token || '';
+  console.log('Verifying token:', token);
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    req.user = decoded;
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wx3f0no.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -36,21 +52,26 @@ async function run() {
     const userLikeHistory = database.collection("UserLikeHistory");
 
     app.post('/jwt', (req, res) => {
-      const user = req.body;
-      console.log(user);
-      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const {userEmail} = req.body;
+      console.log('Generating JWT for email:', userEmail);
+      const token = jwt.sign( {userEmail}, process.env.JWT_SECRET, { expiresIn: '1h' });
       res.
-      cookie('token', token, { httpOnly: true, secure: false })
-      .send({ success: true } );
+        cookie('token', token, { httpOnly: true, secure: false })
+        .send({ success: true });
     });
 
+
+    app.post('/logout', (req, res) => {
+            res.clearCookie('token', { httpOnly: true, secure: false });
+            res.send({ success: true });
+    });
 
     app.get('/artifacts', async (req, res) => {
       const result = await artifacts.find().toArray();
       res.send(result);
     });
 
-    app.post('/addArtifact', async (req, res) => {
+    app.post('/addArtifact', verifyToken, async (req, res) => {
       const newArtifact = req.body;
       const result = await artifacts.insertOne(newArtifact);
       res.send(result);
@@ -100,11 +121,15 @@ async function run() {
       res.send(artifact);
     });
 
-    app.get('/liked-artifacts', async (req, res) => {
+    app.get('/liked-artifacts', verifyToken, async (req, res) => {
       try {
+
+        if(req.user.userEmail !== req.query.userEmail){
+          return  res.status(403).json({ message: 'Forbidden access' });
+        }
+        
         const { userEmail } = req.query;
         if (!userEmail) return res.status(400).json({ message: 'userEmail required' });
-
         const liked = await userLikeHistory
           .find({ userEmail })
           .sort({ likedAt: -1 })
@@ -119,7 +144,7 @@ async function run() {
     });
 
 
-    app.get('/likes/check', async (req, res) => {
+    app.get('/likes/check',  async (req, res) => {
       try {
         const { artifactId, userEmail } = req.query;
         if (!artifactId || !userEmail) return res.json({ isLiked: false });
@@ -145,7 +170,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/my-artifacts', async (req, res) => {
+    app.get('/my-artifacts',verifyToken, async (req, res) => {
       try {
         const { userEmail } = req.query;
         if (!userEmail) return res.status(400).json({ message: 'userEmail required' });
